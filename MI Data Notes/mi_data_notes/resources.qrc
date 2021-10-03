@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/MI_Data_Notes" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
