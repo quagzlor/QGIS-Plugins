@@ -3,14 +3,14 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
-name=MI Data Notes
+name=MI Notes
 qgisMinimumVersion=3.0
-description=This plugin allows for marking and making notes of pixels on MI data from the Kaguya Probe
+description=Plugin to make notes on pixel values of MI data
 version=0.1
-author=Divij G Singh
+author=Divij Gurpreet Singh
 email=m5242105@u-aizu.ac.jp
 
-about=This plugin allows for marking and making notes of pixels on MI data from the Kaguya Probe
+about=Plugin to make notes on pixel values of MI data
 
 tracker=http://bugs
 repository=http://repo

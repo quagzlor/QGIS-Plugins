@@ -9,25 +9,25 @@
 """
 
 __author__ = 'm5242105@u-aizu.ac.jp'
-__date__ = '2021-10-03'
-__copyright__ = 'Copyright 2021, Divij G Singh'
+__date__ = '2021-10-06'
+__copyright__ = 'Copyright 2021, Divij Gurpreet Singh'
 
 import unittest
 
 from qgis.PyQt.QtGui import QDialogButtonBox, QDialog
 
-from MI_Data_Notes_dialog import MI_Data_NotesDialog
+from MI_Notes_dialog import MINotesDialog
 
 from utilities import get_qgis_app
 QGIS_APP = get_qgis_app()
 
 
-class MI_Data_NotesDialogTest(unittest.TestCase):
+class MINotesDialogTest(unittest.TestCase):
     """Test dialog works."""
 
     def setUp(self):
         """Runs before each test."""
-        self.dialog = MI_Data_NotesDialog(None)
+        self.dialog = MINotesDialog(None)
 
     def tearDown(self):
         """Runs after each test."""
@@ -49,7 +49,7 @@ class MI_Data_NotesDialogTest(unittest.TestCase):
         self.assertEqual(result, QDialog.Rejected)
 
 if __name__ == "__main__":
-    suite = unittest.makeSuite(MI_Data_NotesDialogTest)
+    suite = unittest.makeSuite(MINotesDialogTest)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
 

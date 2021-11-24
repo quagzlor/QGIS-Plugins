@@ -9,8 +9,8 @@
 """
 
 __author__ = 'm5242105@u-aizu.ac.jp'
-__date__ = '2021-10-03'
-__copyright__ = 'Copyright 2021, Divij G Singh'
+__date__ = '2021-10-06'
+__copyright__ = 'Copyright 2021, Divij Gurpreet Singh'
 
 import unittest
 
@@ -18,7 +18,7 @@ from qgis.PyQt.QtGui import QIcon
 
 
 
-class MI_Data_NotesDialogTest(unittest.TestCase):
+class MINotesDialogTest(unittest.TestCase):
     """Test rerources work."""
 
     def setUp(self):
@@ -31,12 +31,12 @@ class MI_Data_NotesDialogTest(unittest.TestCase):
 
     def test_icon_png(self):
         """Test we can click OK."""
-        path = ':/plugins/MI_Data_Notes/icon.png'
+        path = ':/plugins/MINotes/icon.png'
         icon = QIcon(path)
         self.assertFalse(icon.isNull())
 
 if __name__ == "__main__":
-    suite = unittest.makeSuite(MI_Data_NotesResourcesTest)
+    suite = unittest.makeSuite(MINotesResourcesTest)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
 

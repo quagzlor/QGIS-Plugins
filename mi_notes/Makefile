@@ -1,11 +1,11 @@
 #/***************************************************************************
-# MI_Data_Notes
+# MINotes
 #
-# This plugin allows for marking and making notes of pixels on MI data from the Kaguya Probe
+# Plugin to make notes on pixel values of MI data
 #							 -------------------
-#		begin				: 2021-10-03
+#		begin				: 2021-10-06
 #		git sha				: $Format:%H$
-#		copyright			: (C) 2021 by Divij G Singh
+#		copyright			: (C) 2021 by Divij Gurpreet Singh
 #		email				: m5242105@u-aizu.ac.jp
 # ***************************************************************************/
 #
@@ -38,15 +38,15 @@ LOCALES =
 # translation
 SOURCES = \
 	__init__.py \
-	MI_Data_Notes.py MI_Data_Notes_dialog.py
+	MI_Notes.py MI_Notes_dialog.py
 
-PLUGINNAME = MI_Data_Notes
+PLUGINNAME = MI_Notes
 
 PY_FILES = \
 	__init__.py \
-	MI_Data_Notes.py MI_Data_Notes_dialog.py
+	MI_Notes.py MI_Notes_dialog.py
 
-UI_FILES = MI_Data_Notes_dialog_base.ui
+UI_FILES = MI_Notes_dialog_base.ui
 
 EXTRAS = metadata.txt icon.png
 
