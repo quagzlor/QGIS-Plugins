@@ -21,10 +21,14 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
-from qgis.gui import QgsMapToolEmitPoint
+from qgis.PyQt.QtWidgets import QAction,QFileDialog
+from qgis.gui import QgsMapToolEmitPoint, QgsMapToolPan
+from qgis.core import QgsPointXY
+
+import csv #For writing csv stuff
+import matplotlib.pyplot as plt #For spectra graphs
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -69,9 +73,18 @@ class MINotes:
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
 
+        #Map Emit tool to get coordinates
         self.canvas = self.iface.mapCanvas()
         self.pointTool = QgsMapToolEmitPoint(self.canvas)
         self.pointTool.canvasClicked.connect( self.display_point )
+
+        #Pan tool, for when stopping pixel selection
+        self.panTool = QgsMapToolPan(self.canvas)
+
+        #Arrays to save stuff
+        self.xydata = [] #Saves co ordinates
+        self.xynotes = [] #Saves notes
+        self.edit_index = 0 #Saves the index for the co ordinates being edited
         
 
     # noinspection PyMethodMayBeStatic
@@ -197,6 +210,9 @@ class MINotes:
             self.first_start = False
             self.dlg = MINotesDialog()
 
+            #Keep window on top
+            self.dlg.setWindowFlags(Qt.WindowStaysOnTopHint)
+
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -207,11 +223,133 @@ class MINotes:
             # substitute with your code.
             #pass
 
+        
+        #Linking Buttons#
+
+        #For selecting the loading and saving files
+        self.dlg.SaveFileSelect.clicked.connect(self.select_output_file)
+        self.dlg.LoadFileSelect.clicked.connect(self.select_input_file)
+
+        #For the actual loading and saving
+        self.dlg.SaveFileButton.clicked.connect(self.write_to_file)
+        self.dlg.LoadFileButton.clicked.connect(self.read_from_file)
+
+        #Starting and stopping pixel selection
+        self.dlg.PixelStart.clicked.connect(self.pixel_start)
+        self.dlg.PixelStop.clicked.connect(self.pixel_stop)
+
+        #Loading and saving pixel data and editing
+        self.dlg.XYLoad.clicked.connect(self.load_edit_xy)
+        self.dlg.XYSave.clicked.connect(self.save_edit_xy)
+
+        self.dlg.SpectraDraw.clicked.connect(self.mi_spectra_graph)
+        
+
+    def pixel_start(self): #Sets map tool to co ordinate emitter
         # this QGIS tool emits as QgsPoint after each click on the map canvas
-        
-        
         self.canvas.setMapTool(self.pointTool)
 
-    def display_point(self,pointTool):
-        print(pointTool[0],pointTool[1])
+    def pixel_stop(self): #Sets map tool to pan
+        # this QGIS tool emits as QgsPoint after each click on the map canvas
+        self.canvas.setMapTool(self.panTool)
+
+    def display_point(self,pointTool): #Used to get coordinate from map
+        self.xydata.append([pointTool[0],pointTool[1]])
+        self.xynotes.append('Note: ')
+        self.combo_populate()
         
+    def select_output_file(self): #File Dialog to select file to save
+        filename, _filter = QFileDialog.getSaveFileName(
+            self.dlg, "Select output file ","", '*.csv')
+        self.dlg.SaveFileLine.setText(filename)
+
+    def select_input_file(self): #File Dialog to select file to load
+        filename, _filter = QFileDialog.getOpenFileName(
+            self.dlg, "Select output file ","", '*.csv')
+        self.dlg.LoadFileLine.setText(filename)
+
+    def write_to_file(self): #Writes data to a csv file
+        filename = self.dlg.SaveFileLine.text()
+        with open(filename,'w',newline='',encoding='utf-8') as outfile:
+            writer = csv.writer(outfile)
+
+            outdata = []
+
+            for i in range(len(self.xydata)):
+                outdata.append([self.xydata[i][0],self.xydata[i][1],self.xynotes[i]])
+            print (outdata)
+            writer.writerows(outdata)
+
+    def read_from_file(self): #Loads data from csv file
+        filename = self.dlg.LoadFileLine.text()
+
+        self.xydata = []
+        self.xynotes = []
+
+        with open(filename,'r',newline='',encoding='utf-8') as infile:
+            reader = csv.reader(infile, delimiter=',')
+            for row in reader:
+                x_coordinate = float(row[0])
+                y_coordinate = float(row[1])
+
+                self.xydata.append([x_coordinate,y_coordinate])
+                self.xynotes.append(row[2])
+
+        self.combo_populate()
+
+
+    def combo_populate(self): #Populates the dropdown combo box
+        self.dlg.XYCombo.clear()
+
+        for index in range(len(self.xydata)):
+            self.dlg.XYCombo.addItem(str(index+1)+': '+str(self.xydata[index][0])+'|'+str(self.xydata[index][1]))
+
+    def load_edit_xy(self): #Loads Co ordinates and Notes into text boxes
+        self.edit_index = self.dlg.XYCombo.currentIndex()
+
+        x_coordinate,y_coordinate = self.xy_format()
+        self.dlg.XYCoordinateBox.setPlainText(x_coordinate+'\n'+y_coordinate)
+
+        self.dlg.XYNoteBox.setPlainText(self.xynotes[self.edit_index])
+
+    def xy_format(self): #Formats XY Coordinates for text box
+        x_coordinate = 'X: '+str(self.xydata[self.edit_index][0])
+        y_coordinate = 'Y: '+str(self.xydata[self.edit_index][1])
+
+        return x_coordinate,y_coordinate
+
+    def xy_unformat(self): #Formats XY Coordinates from text box to floats
+        xy_data = self.dlg.XYCoordinateBox.toPlainText().split('\n')
+        x_coordinate = xy_data[0]
+        y_coordinate = xy_data[1]
+
+        x_coordinate = float(x_coordinate[2:].strip())
+        y_coordinate = float(y_coordinate[2:].strip())
+
+        return x_coordinate,y_coordinate
+
+    def save_edit_xy(self): #Saves Co ordinates and Notes from text boxes
+        self.xynotes[self.edit_index] = self.dlg.XYNoteBox.toPlainText()
+
+        x_coordinate,y_coordinate = self.xy_unformat()
+        self.xydata[self.edit_index][0] = x_coordinate
+        self.xydata[self.edit_index][1] = y_coordinate
+
+    def mi_spectra_graph(self): #Draws a graph of the spectra reading using matplotlib
+        bands = [1,2,3,4,5,6,7,8,9]
+        x_coordinate = self.xydata[self.edit_index][0]
+        y_coordinate = self.xydata[self.edit_index][1]
+
+        band_data = self.get_mi_band_data(x_coordinate,y_coordinate)
+
+        plt.plot(bands,band_data)
+        plt.xlabel("Band")
+        plt.show()
+
+    def get_mi_band_data(self,x_coordinate,y_coordinate): #Gets the band information for the given coordinates
+        layer = self.iface.activeLayer()
+        data = []
+        for i in range(9):
+            val, res = layer.dataProvider().sample(QgsPointXY(x_coordinate,y_coordinate),i)
+            data.append(val)
+        return data
