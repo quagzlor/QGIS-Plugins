@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction,QFileDialog
 from qgis.gui import QgsMapToolEmitPoint, QgsMapToolPan
-from qgis.core import QgsPointXY
+from qgis.core import QgsPointXY, QgsProject
 
 import csv #For writing csv stuff
 import matplotlib.pyplot as plt #For spectra graphs
@@ -229,6 +229,7 @@ class MINotes:
         #For selecting the loading and saving files
         self.dlg.SaveFileSelect.clicked.connect(self.select_output_file)
         self.dlg.LoadFileSelect.clicked.connect(self.select_input_file)
+        self.dlg.SaveSpectraSelect.clicked.connect(self.select_spectra_out)
 
         #For the actual loading and saving
         self.dlg.SaveFileButton.clicked.connect(self.write_to_file)
@@ -242,7 +243,9 @@ class MINotes:
         self.dlg.XYLoad.clicked.connect(self.load_edit_xy)
         self.dlg.XYSave.clicked.connect(self.save_edit_xy)
 
+        #Drawing the spectra graph
         self.dlg.SpectraDraw.clicked.connect(self.mi_spectra_graph)
+        self.dlg.SpectraDrawAll.clicked.connect(self.mi_spectra_graph_bulk)
         
 
     def pixel_start(self): #Sets map tool to co ordinate emitter
@@ -267,6 +270,12 @@ class MINotes:
         filename, _filter = QFileDialog.getOpenFileName(
             self.dlg, "Select output file ","", '*.csv')
         self.dlg.LoadFileLine.setText(filename)
+    
+    def select_spectra_out(self):
+        filename = QFileDialog.getExistingDirectory(
+            self.dlg, "Select Where to Save the Spectra ")
+        print (filename)
+        self.dlg.SaveSpectraLine.setText(filename)
 
     def write_to_file(self): #Writes data to a csv file
         filename = self.dlg.SaveFileLine.text()
@@ -276,9 +285,12 @@ class MINotes:
             outdata = []
 
             for i in range(len(self.xydata)):
-                outdata.append([self.xydata[i][0],self.xydata[i][1],self.xynotes[i]])
-            print (outdata)
+                band_data = self.get_mi_band_data(self.xydata[i][0],self.xydata[i][1])
+                outdata.append([self.xydata[i][0],self.xydata[i][1],self.xynotes[i],band_data[1],band_data[2],band_data[3],band_data[4],band_data[5],band_data[6],band_data[7],band_data[8],band_data[9]])
+            #print (outdata)
             writer.writerows(outdata)
+
+        self.push_message("File Saved")
 
     def read_from_file(self): #Loads data from csv file
         filename = self.dlg.LoadFileLine.text()
@@ -296,7 +308,8 @@ class MINotes:
                 self.xynotes.append(row[2])
 
         self.combo_populate()
-
+        
+        self.push_message("File Loaded")
 
     def combo_populate(self): #Populates the dropdown combo box
         self.dlg.XYCombo.clear()
@@ -308,7 +321,8 @@ class MINotes:
         self.edit_index = self.dlg.XYCombo.currentIndex()
 
         x_coordinate,y_coordinate = self.xy_format()
-        self.dlg.XYCoordinateBox.setPlainText(x_coordinate+'\n'+y_coordinate)
+        self.dlg.XYCoordLabelX.setText(x_coordinate)
+        self.dlg.XYCoordLabelY.setText(y_coordinate)
 
         self.dlg.XYNoteBox.setPlainText(self.xynotes[self.edit_index])
 
@@ -331,25 +345,60 @@ class MINotes:
     def save_edit_xy(self): #Saves Co ordinates and Notes from text boxes
         self.xynotes[self.edit_index] = self.dlg.XYNoteBox.toPlainText()
 
-        x_coordinate,y_coordinate = self.xy_unformat()
-        self.xydata[self.edit_index][0] = x_coordinate
-        self.xydata[self.edit_index][1] = y_coordinate
+        #x_coordinate,y_coordinate = self.xy_unformat()
+        #self.xydata[self.edit_index][0] = x_coordinate
+        #self.xydata[self.edit_index][1] = y_coordinate
 
     def mi_spectra_graph(self): #Draws a graph of the spectra reading using matplotlib
-        bands = [1,2,3,4,5,6,7,8,9]
+        bands = [0,1,2,3,4,5,6,7,8,9]
         x_coordinate = self.xydata[self.edit_index][0]
         y_coordinate = self.xydata[self.edit_index][1]
 
         band_data = self.get_mi_band_data(x_coordinate,y_coordinate)
 
         plt.plot(bands,band_data)
-        plt.xlabel("Band")
+        plt.xticks(bands,[0,414.0, 749.0 , 901.0, 950.0, 1001.0 , 1000.0, 1049.0 , 1248.0 , 1548.0])
+        plt.xlabel("Wavelength (nm)")
         plt.show()
 
+    def mi_spectra_graph_bulk(self):
+        bands = [0,1,2,3,4,5,6,7,8,9]
+        for xy in self.xydata:
+
+            x_coordinate = xy[0]
+            y_coordinate = xy[1]
+
+            band_data = self.get_mi_band_data(x_coordinate,y_coordinate)
+            figname = self.dlg.SaveSpectraLine.text() + "/" + str(x_coordinate) + " - " + str(y_coordinate) + ".png"
+
+            plt.clf()
+            plt.plot(bands,band_data)
+            plt.xticks(bands,[0,414.0, 749.0 , 901.0, 950.0, 1001.0 , 1000.0, 1049.0 , 1248.0 , 1548.0])
+            plt.xlabel("Wavelength (nm)")
+            plt.savefig(fname=figname)
+            plt.clf()
+            
+        self.push_message("Spectra Saved")
+
     def get_mi_band_data(self,x_coordinate,y_coordinate): #Gets the band information for the given coordinates
+        self.set_mi_layer()
         layer = self.iface.activeLayer()
         data = []
-        for i in range(9):
+        for i in range(10):
             val, res = layer.dataProvider().sample(QgsPointXY(x_coordinate,y_coordinate),i)
             data.append(val)
         return data
+
+    def set_mi_layer(self): #Sets layer to MI layer
+        layers_names = []
+        for layer in QgsProject.instance().mapLayers().values():
+            layers_names.append(layer.name())
+  
+        for layer in layers_names:
+            if layer[:6]=='MI_MAP':
+                layer = QgsProject.instance().mapLayersByName(layer)[0]
+                self.iface.setActiveLayer(layer)
+                break
+    
+    def push_message(self,message):
+        self.iface.messageBar().pushMessage(message)
