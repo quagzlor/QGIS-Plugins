@@ -73,11 +73,6 @@ class MINotes:
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
 
-        #Flags for stuff
-        self.saveflag = False #Check if save location is selected
-        self.loadflag = False #Check if load location is selected
-        self.graphflag = False #Check if batch graph location is selected
-
         #Map Emit tool to get coordinates
         self.canvas = self.iface.mapCanvas()
         self.pointTool = QgsMapToolEmitPoint(self.canvas)
@@ -437,6 +432,8 @@ class MINotes:
 
             self.notelayer.addItem(annotation)
             self.notelayer.addItem(annotation_marker)
+        
+        self.push_message("Map Updated")
 
 
     def get_mi_band_data(self,x_coordinate,y_coordinate): #Gets the band information for the given coordinates
