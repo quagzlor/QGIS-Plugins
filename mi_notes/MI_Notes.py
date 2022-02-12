@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction,QFileDialog
 from qgis.gui import QgsMapToolEmitPoint, QgsMapToolPan
-from qgis.core import QgsPointXY, QgsProject
+from qgis.core import QgsPointXY, QgsPoint, QgsProject, QgsAnnotationPointTextItem, QgsAnnotationLayer, QgsAnnotationMarkerItem
 
 import csv #For writing csv stuff
 import matplotlib.pyplot as plt #For spectra graphs
@@ -73,6 +73,11 @@ class MINotes:
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
 
+        #Flags for stuff
+        self.saveflag = False #Check if save location is selected
+        self.loadflag = False #Check if load location is selected
+        self.graphflag = False #Check if batch graph location is selected
+
         #Map Emit tool to get coordinates
         self.canvas = self.iface.mapCanvas()
         self.pointTool = QgsMapToolEmitPoint(self.canvas)
@@ -80,6 +85,9 @@ class MINotes:
 
         #Pan tool, for when stopping pixel selection
         self.panTool = QgsMapToolPan(self.canvas)
+
+        #Annotation layer
+        self.notelayer = QgsAnnotationLayer(name ="Annotations", options = QgsAnnotationLayer.LayerOptions(QgsProject.instance().transformContext()))
 
         #Arrays to save stuff
         self.xydata = [] #Saves co ordinates
@@ -239,6 +247,9 @@ class MINotes:
         self.dlg.PixelStart.clicked.connect(self.pixel_start)
         self.dlg.PixelStop.clicked.connect(self.pixel_stop)
 
+        #To draw pixels on map
+        self.dlg.PixelDraw.clicked.connect(self.pixel_draw)
+
         #Loading and saving pixel data and editing
         self.dlg.XYLoad.clicked.connect(self.load_edit_xy)
         self.dlg.XYSave.clicked.connect(self.save_edit_xy)
@@ -262,23 +273,37 @@ class MINotes:
         self.combo_populate()
         
     def select_output_file(self): #File Dialog to select file to save
+
+        self.saveflag = True
+
         filename, _filter = QFileDialog.getSaveFileName(
             self.dlg, "Select output file ","", '*.csv')
         self.dlg.SaveFileLine.setText(filename)
 
     def select_input_file(self): #File Dialog to select file to load
+
+        self.loadflag = True
+
         filename, _filter = QFileDialog.getOpenFileName(
             self.dlg, "Select output file ","", '*.csv')
         self.dlg.LoadFileLine.setText(filename)
     
     def select_spectra_out(self):
+
+        self.graphflag = True
+
         filename = QFileDialog.getExistingDirectory(
             self.dlg, "Select Where to Save the Spectra ")
         print (filename)
         self.dlg.SaveSpectraLine.setText(filename)
 
     def write_to_file(self): #Writes data to a csv file
+
         filename = self.dlg.SaveFileLine.text()
+
+        if filename == '':
+            self.select_output_file()
+
         with open(filename,'w',newline='',encoding='utf-8') as outfile:
             writer = csv.writer(outfile)
 
@@ -293,7 +318,11 @@ class MINotes:
         self.push_message("File Saved")
 
     def read_from_file(self): #Loads data from csv file
+
         filename = self.dlg.LoadFileLine.text()
+
+        if filename == '':
+            self.select_input_file()
 
         self.xydata = []
         self.xynotes = []
@@ -355,13 +384,19 @@ class MINotes:
         y_coordinate = self.xydata[self.edit_index][1]
 
         band_data = self.get_mi_band_data(x_coordinate,y_coordinate)
-
+        #print (band_data)
+        #plt.figure(str(x_coordinate)+str(y_coordinate))
+        plt.ion()
         plt.plot(bands,band_data)
-        plt.xticks(bands,[0,414.0, 749.0 , 901.0, 950.0, 1001.0 , 1000.0, 1049.0 , 1248.0 , 1548.0])
+        plt.xticks(bands,[0,415.0, 750.0 , 900.0, 950.0, 1000.0 , 1000.0, 1050.0 , 1250.0 , 1550.0])
         plt.xlabel("Wavelength (nm)")
         plt.show()
 
-    def mi_spectra_graph_bulk(self):
+    def mi_spectra_graph_bulk(self): #Saves a png of the spectra of each coordinate
+
+        if self.dlg.SaveSpectraLine.text() == '':
+            self.select_spectra_out()
+
         bands = [0,1,2,3,4,5,6,7,8,9]
         for xy in self.xydata:
 
@@ -371,14 +406,38 @@ class MINotes:
             band_data = self.get_mi_band_data(x_coordinate,y_coordinate)
             figname = self.dlg.SaveSpectraLine.text() + "/" + str(x_coordinate) + " - " + str(y_coordinate) + ".png"
 
+            plt.ioff()
             plt.clf()
             plt.plot(bands,band_data)
-            plt.xticks(bands,[0,414.0, 749.0 , 901.0, 950.0, 1001.0 , 1000.0, 1049.0 , 1248.0 , 1548.0])
+            plt.xticks(bands,[0,415.0, 750.0 , 900.0, 950.0, 1000.0 , 1000.0, 1050.0 , 1250.0 , 1550.0])
             plt.xlabel("Wavelength (nm)")
             plt.savefig(fname=figname)
             plt.clf()
             
         self.push_message("Spectra Saved")
+
+    def pixel_draw(self): #Creates annotation of each pixel
+
+        layers_names = []
+        for layer in QgsProject.instance().mapLayers().values():
+            layers_names.append(layer.name())
+
+        if 'Annotations' not in layers_names:
+            QgsProject.instance().addMapLayer(self.notelayer)
+        else:
+            QgsProject.instance().removeMapLayer(QgsProject.instance().mapLayersByName('Annotations')[0])
+            self.notelayer = QgsAnnotationLayer(name ="Annotations", options = QgsAnnotationLayer.LayerOptions(QgsProject.instance().transformContext()))
+            QgsProject.instance().addMapLayer(self.notelayer)
+
+        self.notelayer.clear()
+        
+        for i in range(len(self.xydata)):
+            annotation = QgsAnnotationPointTextItem(self.xynotes[i],QgsPointXY(self.xydata[i][0],self.xydata[i][1]))
+            annotation_marker = QgsAnnotationMarkerItem(QgsPoint(self.xydata[i][0],self.xydata[i][1]))
+
+            self.notelayer.addItem(annotation)
+            self.notelayer.addItem(annotation_marker)
+
 
     def get_mi_band_data(self,x_coordinate,y_coordinate): #Gets the band information for the given coordinates
         self.set_mi_layer()
